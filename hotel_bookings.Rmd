@@ -1,0 +1,178 @@
+---
+title: "Hotel Bookings"
+output: html_document
+date: "2023-12-29"
+---
+# Analysis Goal: Explore the data to gain insights on running promotions/deals.
+
+## Setup Packages
+```{r install packages}
+#install.packages("tidyverse")
+#install.packages("skimr")
+#install.packages("janitor")
+#install.packages("ggplot2)
+```
+
+```{r load packages}
+library(tidyverse)
+library(skimr)
+library(janitor)
+library(ggplot2)
+```
+
+## Import Data
+```{r load dataset}
+hotel_bookings <- read_csv("hotel_bookings.csv")
+```
+
+## Explore Data
+```{r}
+head(hotel_bookings)
+```
+
+```{r}
+str(hotel_bookings)
+```
+
+```{r}
+colnames(hotel_bookings)
+```
+
+## How early should you run promotions for city hotel rooms vs resort hotel rooms
+
+### Types of hotel rooms in dataset
+```{r}
+hotel_bookings %>% 
+  group_by(hotel) %>% 
+  summarize(count = n()) %>% 
+  print()
+```
+
+### Find average lead time for city vs resort
+```{r}
+leadtime_summary <- hotel_bookings %>% 
+  group_by(hotel) %>% 
+  summarize(
+    Avg_lead_time = mean(lead_time),
+    Max_lead_time = max(lead_time),
+    Min_lead_time = min(lead_time)
+  )
+head(leadtime_summary)
+```
+### Visual with count of lead_time for specified bins.
+```{r}
+leadtime_per_hotel <- hotel_bookings %>% 
+  group_by(hotel) %>% 
+  summarize(
+    count_0_100 = sum(lead_time >= 0 & lead_time <= 100),
+    count_101_200 = sum(lead_time > 100 & lead_time <= 200),
+    count_201_300 = sum(lead_time > 200 & lead_time <= 300),
+    count_301_400 = sum(lead_time > 300 & lead_time <= 400),
+    count_401_500 = sum(lead_time > 400 & lead_time <= 500),
+    count_501_600 = sum(lead_time > 500 & lead_time <= 600),
+    count_601_700 = sum(lead_time > 600 & lead_time <= 700)
+  )
+
+# Reshape data for ggplot
+leadtime_per_hote_reshaped <- tidyr::gather(leadtime_per_hotel, key = "lead_time_range", value = "count", -hotel)
+
+# Create a bar plot
+ggplot(leadtime_per_hote_reshaped, aes(x = hotel, y = count, fill = lead_time_range)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Lead Time Distribution",
+       x = "Hotel",
+       y = "# Bookings") +
+  scale_fill_brewer(palette = "Set3")
+```
+### Takeaway
+- Avg lead time for City Hotel: 110 days
+- Avg lead time for Resort Hotel: 93 days
+- Double bookings for City vs Resort Hotels 
+
+## Number of children vs lead time
+```{r}
+ggplot(data = hotel_bookings) +
+  geom_point(mapping = aes(x = lead_time, y = children))+
+  labs(title = "Number of Children by Lead Time",
+       x = "Lead Time",
+       y = "# Children")
+```
+### Takeaway
+- Bookings with 0 children have longer booking lead time vs bookings with more than 1 children. 
+
+```{r}
+ggplot(data = hotel_bookings) +
+  geom_bar(mapping = aes(x = hotel, fill = hotel)) +
+  facet_wrap(~children) +
+  labs(title = "Number of Children by Hotel",
+       x = "Hotel",
+       y = "# Children") +
+  scale_fill_brewer(palette = "Set3")
+```
+## Weekend vs Weekday bookings
+
+```{r}
+hotel_bookings %>% 
+  summarize(
+    total_nights = sum(stays_in_weekend_nights + stays_in_week_nights), 
+    total_weekend_nights = sum(stays_in_weekend_nights),
+    total_week_nights = sum(stays_in_week_nights),
+    avg_night_per_booking = mean(stays_in_weekend_nights + stays_in_week_nights),
+    avg_weekend_nights_per_booking = mean(stays_in_weekend_nights),
+    avg_week_nights_per_booking = mean(stays_in_week_nights),
+  )
+```
+### Total Weekend vs Total Week Nights
+```{r}
+ggplot(data = hotel_bookings) +
+  geom_bar(mapping = aes(x = factor(1), y = stays_in_weekend_nights, fill = "Weekend Nights"), stat = "identity") +
+  geom_bar(mapping = aes(x = factor(2), y = stays_in_week_nights, fill = "Week Nights"), stat = "identity") +
+  labs(title = "Total Weekend vs Total Week Nights",
+       x = NULL,  # Remove x-axis label
+       y = "Count") +
+  scale_x_discrete(labels = c("Weekend Nights", "Week Nights")) +
+  scale_fill_brewer(palette = "Set3")
+
+```
+### Average Weekend Nights vs Avg Week Nights per Booking
+```{r}
+avg_nights_comparison <- hotel_bookings %>%
+  summarise(
+    avg_weekend_nights = mean(stays_in_weekend_nights),
+    avg_week_nights = mean(stays_in_week_nights)
+  )
+
+ggplot(data = avg_nights_comparison) +
+  geom_bar(mapping = aes(x = factor(1), y = avg_weekend_nights, fill = "Avg Weekend Nights"), stat = "identity") +
+  geom_bar(mapping = aes(x = factor(2), y = avg_week_nights, fill = "Avg Week Nights"), stat = "identity") +
+  labs(title = "Average Weekend Nights vs Avg Week Nights per Booking",
+       x = NULL,  # Remove x-axis label
+       y = "Average Nights") +
+  scale_x_discrete(labels = c("Avg Weekend Nights", "Avg Week Nights")) +
+  scale_fill_brewer(palette = "Set3")
+
+```
+## Number of Transactions for Various Distribution Types
+```{r}
+ggplot(data = hotel_bookings) +
+  geom_bar(mapping = aes(x = distribution_channel, fill = distribution_channel)) +
+  labs(title = "Num Transactions per Distribution Type",
+       x = "Distribution Channels",
+       y = "Count") +
+  scale_fill_brewer(palette = "Set3")
+```
+
+
+```{r}
+ggplot(data = hotel_bookings) +
+  geom_bar(mapping = aes(x = distribution_channel, fill = market_segment)) +
+  labs(title = "Num Transactions per Distribution Type split based on Market Segment",
+       x = "Distribution Channels",
+       y = "Count") +
+  scale_fill_brewer(palette = "Set3")
+```
+
+
+
+
+
